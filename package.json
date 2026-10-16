@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": "github:Keith-CY/formquote-mcp",
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test test/*.test.js",
     "dev": "wrangler dev --port 8788",
     "deploy": "wrangler deploy",
     "smoke": "node scripts/smoke.mjs"
