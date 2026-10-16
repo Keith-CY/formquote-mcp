@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "formquote": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://formquote-mcp.chen-yu-d1.workers.dev/mcp"]
+    }
+  }
+}

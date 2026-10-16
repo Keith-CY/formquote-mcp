@@ -1,0 +1,21 @@
+{
+  "name": "formquote-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MCP server for Formquote: compare published prices and licence fit for email verification, sound effect packs and font licences in AI chats.",
+  "type": "module",
+  "license": "MIT",
+  "repository": "github:Keith-CY/formquote-mcp",
+  "scripts": {
+    "test": "node --test test/",
+    "dev": "wrangler dev --port 8788",
+    "deploy": "wrangler deploy",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.143.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

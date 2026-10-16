@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "formquote-mcp",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  // No Workers Logs or traces: requests are not recorded anywhere.
+  "observability": { "enabled": false },
+  "vars": {
+    // The Formquote site whose public quote API this server wraps.
+    "FORMQUOTE_API": "https://pcba-quote-lab.pages.dev"
+  },
+  // One shared ceiling on tool calls (src/index.js), keyed by a constant, not by IP.
+  "ratelimits": [
+    { "name": "RATE_LIMIT", "namespace_id": "4101", "simple": { "limit": 120, "period": 60 } }
+  ],
+  // Anonymous daily counts (src/counts.js, COUNTS.md). Remove to turn counting off.
+  "d1_databases": [
+    { "binding": "MCP_COUNTS", "database_name": "formquote-mcp-counts", "database_id": "e6980ea7-5ad4-491e-8c2f-e8b1a25b009c" }
+  ]
+}

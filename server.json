@@ -1,0 +1,25 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Keith-CY/formquote-mcp",
+  "title": "Formquote",
+  "description": "Published prices and licence fit for email verification, sound effect packs and font licences.",
+  "version": "1.0.0",
+  "websiteUrl": "https://github.com/Keith-CY/formquote-mcp",
+  "repository": {
+    "url": "https://github.com/Keith-CY/formquote-mcp",
+    "source": "github"
+  },
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/Keith-CY/formquote-mcp/main/assets/icon-512.png",
+      "mimeType": "image/png",
+      "sizes": ["512x512"]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://formquote-mcp.chen-yu-d1.workers.dev/mcp"
+    }
+  ]
+}
