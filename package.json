@@ -13,7 +13,7 @@
     "smoke": "node scripts/smoke.mjs"
   },
   "devDependencies": {
-    "wrangler": "4.143.0"
+    "wrangler": "4.152.0"
   },
   "engines": {
     "node": ">=20"
