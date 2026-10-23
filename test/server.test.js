@@ -217,6 +217,28 @@ test('validate coerces integer strings and booleans', () => {
   assert.equal(SERVER_INFO.version, '1.0.0');
 });
 
+test('validate accepts the number and enum spellings clients send', () => {
+  const email = toolList()[0].inputSchema;
+  assert.deepEqual(validate(email, { emails: '10,000' }).value, { emails: 10000 });
+  assert.deepEqual(validate(email, { emails: '10k' }).value, { emails: 10000 });
+  assert.deepEqual(validate(email, { emails: '2.5M' }).value, { emails: 2500000 });
+  assert.deepEqual(validate(email, { emails: '25 000' }).value, { emails: 25000 });
+  assert.match(validate(email, { emails: 'ten thousand' }).error, /must be a number/);
+  const goalEnum = email.properties.goal.enum;
+  if (goalEnum) {
+    const target = goalEnum[0];
+    assert.equal(validate(email, { emails: 5, goal: target.toUpperCase().replace(/_/g, ' ') }).value.goal, target);
+  }
+});
+
+test('validate maps a renamed count and ignores unknown top-level arguments', () => {
+  const email = toolList()[0].inputSchema;
+  const r = validate(email, { email_count: 5000, currency: 'USD' });
+  assert.deepEqual(r.value, { emails: 5000 });
+  assert.deepEqual(r.ignored, ['currency']);
+  assert.match(validate(email, { emails: 5, existing_credits: { nobody: 3 } }).error, /Unknown argument "nobody"/);
+});
+
 test('the shared ceiling answers busy without calling the API', async () => {
   const realFetch = globalThis.fetch;
   let called = 0;

@@ -140,17 +140,45 @@ export function toolList() {
 
 // ---------- Input validation (the subset of JSON Schema used above) ----------
 // Integer-valued strings such as "25000" are accepted for integer fields.
-export function validate(schema, args) {
+// Numbers clients often send as text: "10,000", "10 000", "10_000", "10k", "2.5M".
+export function parseLooseNumber(v) {
+  if (typeof v !== 'string') return v;
+  const m = /^\s*(-?\d[\d,_ ]*(?:\.\d+)?)\s*([kKmM])?\s*$/.exec(v);
+  if (!m) return v;
+  const n = Number(m[1].replace(/[,_ ]/g, ''));
+  if (!Number.isFinite(n)) return v;
+  const mult = m[2] ? (m[2].toLowerCase() === 'k' ? 1e3 : 1e6) : 1;
+  return Math.round(n * mult * 1e6) / 1e6;
+}
+
+// Other names clients use for the required count (top level only).
+const ALIASES = { emails: ['email_count', 'emails_count', 'num_emails', 'number_of_emails', 'count', 'quantity', 'list_size'] };
+
+export function validate(schema, args, top = true) {
   const out = {};
+  const ignored = [];
   const props = schema.properties || {};
-  for (const key of Object.keys(args)) if (!(key in props)) return { error: `Unknown argument "${String(key).slice(0, 40)}". Allowed: ${Object.keys(props).join(', ')}.` };
+  args = { ...args };
+  if (top) for (const [key, names] of Object.entries(ALIASES)) {
+    if (!(key in props) || args[key] !== undefined) continue;
+    const alias = names.find((n) => args[n] !== undefined);
+    if (alias) { args[key] = args[alias]; delete args[alias]; }
+  }
+  for (const key of Object.keys(args)) {
+    if (key in props) continue;
+    // Nested objects stay strict, and so does anything that could carry addresses or a list.
+    const v = args[key];
+    const risky = Array.isArray(v) || (v && typeof v === 'object') || (typeof v === 'string' && v.includes('@'));
+    if (!top || risky) return { error: `Unknown argument "${String(key).slice(0, 40)}". Allowed: ${Object.keys(props).join(', ')}.` };
+    ignored.push(String(key).slice(0, 40)); delete args[key];
+  }
   for (const key of schema.required || []) if (args[key] === undefined || args[key] === null) return { error: `"${key}" is required.` };
   for (const [key, p] of Object.entries(props)) {
     let v = args[key];
     if (v === undefined || v === null) continue;
     const where = `"${key}"`;
     if (p.type === 'integer' || p.type === 'number') {
-      if (typeof v === 'string' && /^\s*-?\d+(\.\d+)?\s*$/.test(v)) v = Number(v);
+      v = parseLooseNumber(v);
       if (typeof v !== 'number' || !Number.isFinite(v)) return { error: `${where} must be a number.` };
       if (p.type === 'integer' && !Number.isInteger(v)) return { error: `${where} must be a whole number.` };
       if (p.minimum !== undefined && v < p.minimum) return { error: `${where} must be at least ${p.minimum}.` };
@@ -160,16 +188,21 @@ export function validate(schema, args) {
       if (typeof v !== 'boolean') return { error: `${where} must be true or false.` };
     } else if (p.type === 'string') {
       if (typeof v !== 'string') return { error: `${where} must be a string.` };
-      if (p.enum && !p.enum.includes(v)) return { error: `${where} must be one of: ${p.enum.join(', ')}.` };
+      if (p.enum && !p.enum.includes(v)) {
+        const norm = (x) => String(x).trim().toLowerCase().replace(/[\s-]+/g, '_');
+        const hit = p.enum.find((e) => norm(e) === norm(v));
+        if (!hit) return { error: `${where} must be one of: ${p.enum.join(', ')}.` };
+        v = hit;
+      }
     } else if (p.type === 'object') {
       if (typeof v !== 'object' || Array.isArray(v)) return { error: `${where} must be an object.` };
-      const inner = validate(p, v);
+      const inner = validate(p, v, false);
       if (inner.error) return { error: `${where}: ${inner.error}` };
       v = inner.value;
     }
     out[key] = v;
   }
-  return { value: out };
+  return { value: out, ignored };
 }
 
 // ---------- Tool input → DigitalQuoteRequest ----------
@@ -419,16 +452,17 @@ export async function callTool(client, name, args) {
   const checked = validate(def.inputSchema, args);
   if (checked.error) return fail(`Invalid input: ${checked.error}`, category, 'invalid_input');
   const a = checked.value;
+  const note = checked.ignored?.length ? `\n\n(Ignored unknown argument${checked.ignored.length > 1 ? 's' : ''}: ${checked.ignored.join(', ')}.)` : '';
   try {
     if (name === 'list_formquote_catalog') {
       const c = await client.catalog(a.category);
       const s = summarizeCatalog(c, { base: client.base, lang: a.lang, category: a.category });
-      return { content: [{ type: 'text', text: s.text }], structuredContent: s.structured, _count: { category, outcome: 'ok' } };
+      return { content: [{ type: 'text', text: s.text + note }], structuredContent: s.structured, _count: { category, outcome: 'ok' } };
     }
     const sent = quoteRequest(name, a);
     const q = await client.quote(sent);
     const s = summarizeQuote(q, sent, { base: client.base, lang: a.lang });
-    return { content: [{ type: 'text', text: s.text }], structuredContent: s.structured, _count: { category, outcome: s.hasMatch ? 'ok' : 'no_match' } };
+    return { content: [{ type: 'text', text: s.text + note }], structuredContent: s.structured, _count: { category, outcome: s.hasMatch ? 'ok' : 'no_match' } };
   } catch (e) {
     if (e instanceof UpstreamError) return fail(e.message, category, e.kind);
     return fail('Something went wrong while reading the Formquote answer. Try again later.', category, 'error');
